@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Meal Plan Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chat-bubble {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            word-wrap: break-word;
+        }
+        .chat-bubble-ai {
+            background-color: #f3f4f6; /* gray-100 */
+            color: #1f2937; /* gray-800 */
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-bubble-user {
+            background-color: #3b82f6; /* blue-500 */
+            color: #ffffff;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .loading-dots span {
+            animation: blink 1.4s infinite both;
+        }
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes blink {
+            0%, 80%, 100% {
+                opacity: 0;
+            }
+            40% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+    <div class="container mx-auto max-w-4xl p-4">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">AI Meal Plan Assistant</h1>
+            <p class="text-lg text-gray-600 mt-2">Your personal guide to healthier eating.</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Chat and Interaction Column -->
+            <div class="bg-white p-6 rounded-2xl shadow-lg">
+                <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Conversation</h2>
+                <div id="chat-window" class="h-96 overflow-y-auto mb-4 p-4 bg-gray-50 rounded-lg flex flex-col space-y-4">
+                    <!-- AI Welcome Message -->
+                    <div class="chat-bubble chat-bubble-ai">
+                        Hello! I'm here to help you create a personalized meal plan. To start, please tell me a bit about your goals, any dietary restrictions you have, and your general food preferences.
+                    </div>
+                </div>
+                <div id="input-area" class="flex items-center space-x-2">
+                    <input type="text" id="user-input" class="flex-grow border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Type your message...">
+                    <button id="send-button" class="bg-blue-500 text-white font-semibold px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Send
+                    </button>
+                </div>
+            </div>
+
+            <!-- Data and Plan Column -->
+            <div class="space-y-8">
+                <!-- Structured Data -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Structured User Data</h2>
+                    <div id="structured-data-container" class="min-h-[100px] bg-gray-900 text-white p-4 rounded-lg text-sm font-mono whitespace-pre-wrap">
+                        <span class="text-gray-400">// Your structured profile will appear here...</span>
+                    </div>
+                </div>
+
+                <!-- Meal Plan -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Your Daily Meal Plan</h2>
+                    <div id="meal-plan-container" class="min-h-[100px] space-y-4">
+                         <span class="text-gray-400">// Your generated meal plan will appear here...</span>
+                    </div>
+                </div>
+
+                <!-- Ignored Info -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 border-b pb-2">Ignored Information</h2>
+                     <div id="ignored-info-container" class="min-h-[50px] space-y-2">
+                         <span class="text-gray-400">// Information that was not used will be explained here...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI Evals Section -->
+        <div class="mt-8 bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-semibold mb-4">Bonus: AI Evaluation Criteria</h2>
+            <p class="text-gray-600 mb-4">To ensure the AI is helpful and accurate, we could evaluate its responses based on these criteria:</p>
+            <ul class="list-disc list-inside space-y-2 text-gray-700">
+                <li><strong>Question Relevance:</strong> Did the AI ask logical and necessary follow-up questions? Or were they redundant/irrelevant? (e.g., Asking about nut allergies is good, asking for a favorite color is not).</li>
+                <li><strong>Data Extraction Accuracy:</strong> Did the AI correctly parse all user-provided information into the structured format? Were any details missed or hallucinated? (e.g., If the user says "no red meat", this should be in `dietaryRestrictions`).</li>
+                <li><strong>Meal Plan Adherence:</strong> Does the generated meal plan respect all the structured data points? (e.g., A plan for a diabetic should not include high-sugar items).</li>
+                <li><strong>Clarity and Simplicity:</strong> Is the final meal plan written in plain, easy-to-understand language, avoiding jargon?</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const chatWindow = document.getElementById('chat-window');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const structuredDataContainer = document.getElementById('structured-data-container');
+        const mealPlanContainer = document.getElementById('meal-plan-container');
+        const ignoredInfoContainer = document.getElementById('ignored-info-container');
+
+        let conversationState = 'initial_prompt'; // initial_prompt -> asking_questions -> generating_plan
+        let initialPrompt = '';
+        let followUpAnswers = [];
+        let questions = [];
+        let currentQuestionIndex = 0;
+
+        // --- Event Listeners ---
+        sendButton.addEventListener('click', handleUserInput);
+        userInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') {
+                handleUserInput();
+            }
+        });
+
+        // --- Main Handler ---
+        async function handleUserInput() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            addMessageToChat(text, 'user');
+            userInput.value = '';
+            toggleLoading(true);
+
+            try {
+                if (conversationState === 'initial_prompt') {
+                    initialPrompt = text;
+                    conversationState = 'asking_questions';
+                    await getFollowUpQuestions(text);
+                } else if (conversationState === 'asking_questions') {
+                    followUpAnswers.push({ question: questions[currentQuestionIndex], answer: text });
+                    currentQuestionIndex++;
+                    if (currentQuestionIndex < questions.length) {
+                        askNextQuestion();
+                    } else {
+                        conversationState = 'generating_plan';
+                        await processAndGeneratePlan();
+                    }
+                }
+            } catch (error) {
+                console.error('Error processing request:', error);
+                addMessageToChat('Sorry, I encountered an error. Please try again.', 'ai');
+                resetState();
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        // --- Gemini API Interaction ---
+
+        /**
+         * Generates follow-up questions based on the initial user prompt.
+         */
+        async function getFollowUpQuestions(promptText) {
+            addMessageToChat('Thanks! That\'s a good start. I have a few clarifying questions to help me create the best plan for you.', 'ai');
+            
+            const prompt = `Based on the following user request for a meal plan, generate 2-3 essential follow-up questions to gather missing critical information like activity level, specific health conditions, cooking time constraints, or budget. Return the questions as a JSON array of strings. User request: "${promptText}"`;
+            
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    "questions": {
+                        "type": "ARRAY",
+                        "items": { "type": "STRING" }
+                    }
+                }
+            };
+
+            const result = await callGemini(prompt, schema);
+            questions = result.questions;
+
+            if (questions && questions.length > 0) {
+                askNextQuestion();
+            } else {
+                // If no questions are generated, proceed directly
+                conversationState = 'generating_plan';
+                await processAndGeneratePlan();
+            }
+        }
+
+        /**
+         * Structures all collected data and then generates the meal plan.
+         */
+        async function processAndGeneratePlan() {
+            addMessageToChat('Perfect, thank you! Now, I\'m analyzing your information and creating your personalized meal plan. This might take a moment.', 'ai');
+
+            // 1. Structure the data
+            const structuredData = await getStructuredData();
+            displayStructuredData(structuredData);
+            displayIgnoredInfo(structuredData.ignoredInfo);
+
+            // 2. Generate the meal plan
+            const mealPlan = await getMealPlan(structuredData);
+            displayMealPlan(mealPlan);
+        }
+        
+        /**
+         * Calls Gemini to parse the conversation and structure it into a JSON object.
+         */
+        async function getStructuredData() {
+            const conversationHistory = `Initial Request: "${initialPrompt}". Follow-up questions and answers: ${JSON.stringify(followUpAnswers)}`;
+            const prompt = `Parse the following conversation and structure the information into a JSON object. Identify key health goals, dietary restrictions (allergies, intolerances, preferences), lifestyle context (activity level, cooking habits), and specific food preferences. Also, identify any information that is irrelevant or too vague to be actionable for meal planning and place it in an 'ignoredInfo' array with a brief reason for each. Conversation: ${conversationHistory}`;
+
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    "healthGoals": { type: "ARRAY", items: { type: "STRING" } },
+                    "dietaryRestrictions": { type: "ARRAY", items: { type: "STRING" } },
+                    "lifestyle": {
+                        type: "OBJECT",
+                        properties: {
+                            "activityLevel": { type: "STRING" },
+                            "cookingTime": { type: "STRING" }
+                        }
+                    },
+                    "foodPreferences": { type: "ARRAY", items: { type: "STRING" } },
+                    "ignoredInfo": {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "info": { type: "STRING" },
+                                "reason": { type: "STRING" }
+                            }
+                        }
+                    }
+                }
+            };
+            
+            return await callGemini(prompt, schema);
+        }
+
+        /**
+         * Calls Gemini to generate a meal plan based on the structured data.
+         */
+        async function getMealPlan(data) {
+            const prompt = `Based on this structured user profile, create a simple, one-day meal plan (breakfast, lunch, dinner). For each meal, provide a name and a brief, plain-English description explaining why it fits the user's profile. User Profile: ${JSON.stringify(data)}`;
+            
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    "breakfast": {
+                        type: "OBJECT",
+                        properties: { "name": { type: "STRING" }, "description": { type: "STRING" } }
+                    },
+                    "lunch": {
+                        type: "OBJECT",
+                        properties: { "name": { type: "STRING" }, "description": { type: "STRING" } }
+                    },
+                    "dinner": {
+                        type: "OBJECT",
+                        properties: { "name": { type: "STRING" }, "description": { type: "STRING" } }
+                    }
+                }
+            };
+
+            return await callGemini(prompt, schema);
+        }
+
+        /**
+         * Universal function to call the Gemini API.
+         */
+        async function callGemini(prompt, schema = null) {
+            const apiKey = ""; // API key is handled by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+            };
+
+            if (schema) {
+                payload.generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: schema,
+                };
+            }
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API call failed with status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0]) {
+                 const text = result.candidates[0].content.parts[0].text;
+                 try {
+                     return JSON.parse(text);
+                 } catch {
+                     return { text }; // Return as plain text if not JSON
+                 }
+            } else {
+                throw new Error('Invalid API response structure.');
+            }
+        }
+
+        // --- UI Update Functions ---
+
+        function askNextQuestion() {
+            if (currentQuestionIndex < questions.length) {
+                addMessageToChat(questions[currentQuestionIndex], 'ai');
+            }
+        }
+
+        function addMessageToChat(message, sender) {
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`;
+            bubble.textContent = message;
+            chatWindow.appendChild(bubble);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        function displayStructuredData(data) {
+            structuredDataContainer.innerHTML = ''; // Clear previous
+            const formattedJson = JSON.stringify(data, null, 2);
+            structuredDataContainer.textContent = formattedJson;
+        }
+
+        function displayMealPlan(plan) {
+            mealPlanContainer.innerHTML = ''; // Clear previous
+            if (!plan || !plan.breakfast) {
+                mealPlanContainer.innerHTML = `<p class="text-red-500">Could not generate a meal plan based on the provided information. Please try being more specific.</p>`;
+                return;
+            }
+
+            const meals = [
+                { title: 'Breakfast', ...plan.breakfast },
+                { title: 'Lunch', ...plan.lunch },
+                { title: 'Dinner', ...plan.dinner }
+            ];
+
+            meals.forEach(meal => {
+                const mealEl = document.createElement('div');
+                mealEl.innerHTML = `
+                    <h3 class="text-lg font-semibold text-blue-600">${meal.title}: ${meal.name}</h3>
+                    <p class="text-gray-600">${meal.description}</p>
+                `;
+                mealPlanContainer.appendChild(mealEl);
+            });
+        }
+        
+        function displayIgnoredInfo(ignored) {
+            ignoredInfoContainer.innerHTML = ''; // Clear previous
+            if (!ignored || ignored.length === 0) {
+                ignoredInfoContainer.innerHTML = `<span class="text-gray-400">// No information was ignored.</span>`;
+                return;
+            }
+
+            ignored.forEach(item => {
+                const ignoredEl = document.createElement('div');
+                ignoredEl.innerHTML = `
+                    <p class="text-gray-700"><strong class="font-semibold">Ignored:</strong> "${item.info}"</p>
+                    <p class="text-sm text-gray-500 pl-4"><strong class="font-semibold">Reason:</strong> ${item.reason}</p>
+                `;
+                ignoredInfoContainer.appendChild(ignoredEl);
+            });
+        }
+
+        function toggleLoading(isLoading) {
+            if (isLoading) {
+                sendButton.disabled = true;
+                userInput.disabled = true;
+                sendButton.innerHTML = `<div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>`;
+            } else {
+                sendButton.disabled = false;
+                userInput.disabled = false;
+                sendButton.textContent = 'Send';
+            }
+        }
+        
+        function resetState() {
+            conversationState = 'initial_prompt';
+            initialPrompt = '';
+            followUpAnswers = [];
+            questions = [];
+            currentQuestionIndex = 0;
+            toggleLoading(false);
+        }
+
+    </script>
+</body>
+</html>
