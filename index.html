@@ -226,8 +226,8 @@
             const schema = {
                 type: "OBJECT",
                 properties: {
-                    "healthGoals": { type: "ARRAY", items: { type: "STRING" } },
-                    "dietaryRestrictions": { type: "ARRAY", items: { type: "STRING" } },
+                    "healthGoals": { type: "ARRAY", items: { "type": "STRING" } },
+                    "dietaryRestrictions": { type: "ARRAY", items: { "type": "STRING" } },
                     "lifestyle": {
                         type: "OBJECT",
                         properties: {
@@ -235,7 +235,7 @@
                             "cookingTime": { type: "STRING" }
                         }
                     },
-                    "foodPreferences": { type: "ARRAY", items: { type: "STRING" } },
+                    "foodPreferences": { type: "ARRAY", items: { "type": "STRING" } },
                     "ignoredInfo": {
                         type: "ARRAY",
                         items: {
@@ -263,15 +263,15 @@
                 properties: {
                     "breakfast": {
                         type: "OBJECT",
-                        properties: { "name": { type: "STRING" }, "description": { type: "STRING" } }
+                        properties: { "name": { "type": "STRING" }, "description": { "type": "STRING" } }
                     },
                     "lunch": {
                         type: "OBJECT",
-                        properties: { "name": { type: "STRING" }, "description": { type: "STRING" } }
+                        properties: { "name": { "type": "STRING" }, "description": { "type": "STRING" } }
                     },
                     "dinner": {
                         type: "OBJECT",
-                        properties: { "name": { type: "STRING" }, "description": { type: "STRING" } }
+                        properties: { "name": { "type": "STRING" }, "description": { "type": "STRING" } }
                     }
                 }
             };
@@ -283,7 +283,18 @@
          * Universal function to call the Gemini API.
          */
         async function callGemini(prompt, schema = null) {
-            const apiKey = "AIzaSyA4osSX2X9TwF4h57aMm5Ign0bcieJWnHE"; // API key is handled by the environment
+            // This placeholder will be replaced by the GitHub Actions workflow
+            const apiKey = "__GEMINI_API_KEY__"; 
+            
+            if (apiKey === "__GEMINI_API_KEY__") {
+                // This check prevents the app from making a failed API call if the key wasn't replaced.
+                // It's useful for local testing before deployment.
+                addMessageToChat("API Key not configured. This app will not work until deployed via the GitHub Action.", "ai");
+                console.error("API Key is a placeholder. Deploy to see it in action.");
+                toggleLoading(false);
+                throw new Error("API Key not configured.");
+            }
+
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
             
             const payload = {
@@ -344,44 +355,27 @@
         }
 
         function displayMealPlan(plan) {
-                    mealPlanContainer.innerHTML = ''; // Clear the old plan
-        
-                    // First, check if the plan object itself is valid
-                    if (!plan) {
-                        mealPlanContainer.innerHTML = `<p class="text-red-500">Could not generate a meal plan. The AI response was empty.</p>`;
-                        return;
-                    }
-        
-                    const meals = [];
-        
-                    // Securely check if each meal exists and has the needed details before adding it
-                    if (plan.breakfast && plan.breakfast.name && plan.breakfast.description) {
-                        meals.push({ title: 'Breakfast', name: plan.breakfast.name, description: plan.breakfast.description });
-                    }
-                    if (plan.lunch && plan.lunch.name && plan.lunch.description) {
-                        meals.push({ title: 'Lunch', name: plan.lunch.name, description: plan.lunch.description });
-                    }
-                    if (plan.dinner && plan.dinner.name && plan.dinner.description) {
-                        meals.push({ title: 'Dinner', name: plan.dinner.name, description: plan.dinner.description });
-                    }
-        
-                    // If no valid meals were found after checking, show an error message
-                    if (meals.length === 0) {
-                        mealPlanContainer.innerHTML = `<p class="text-red-500">The AI could not create a valid meal plan with your details. Please try again with more specific information.</p>`;
-                        return;
-                    }
-        
-                    // Now, loop through only the meals that were successfully found
-                    meals.forEach(meal => {
-                        const mealEl = document.createElement('div');
-                        mealEl.className = 'mb-4'; // Add some margin between meal items
-                        mealEl.innerHTML = `
-                            <h3 class="text-lg font-semibold text-blue-600">${meal.title}: ${meal.name}</h3>
-                            <p class="text-gray-600">${meal.description}</p>
-                        `;
-                        mealPlanContainer.appendChild(mealEl);
-                    });
-                }
+            mealPlanContainer.innerHTML = ''; // Clear previous
+            if (!plan || !plan.breakfast) {
+                mealPlanContainer.innerHTML = `<p class="text-red-500">Could not generate a meal plan based on the provided information. Please try being more specific.</p>`;
+                return;
+            }
+
+            const meals = [
+                { title: 'Breakfast', ...plan.breakfast },
+                { title: 'Lunch', ...plan.lunch },
+                { title: 'Dinner', ...plan.dinner }
+            ];
+
+            meals.forEach(meal => {
+                const mealEl = document.createElement('div');
+                mealEl.innerHTML = `
+                    <h3 class="text-lg font-semibold text-blue-600">${meal.title}: ${meal.name}</h3>
+                    <p class="text-gray-600">${meal.description}</p>
+                `;
+                mealPlanContainer.appendChild(mealEl);
+            });
+        }
         
         function displayIgnoredInfo(ignored) {
             ignoredInfoContainer.innerHTML = ''; // Clear previous
