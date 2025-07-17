@@ -344,27 +344,44 @@
         }
 
         function displayMealPlan(plan) {
-            mealPlanContainer.innerHTML = ''; // Clear previous
-            if (!plan || !plan.breakfast) {
-                mealPlanContainer.innerHTML = `<p class="text-red-500">Could not generate a meal plan based on the provided information. Please try being more specific.</p>`;
-                return;
-            }
-
-            const meals = [
-                { title: 'Breakfast', ...plan.breakfast },
-                { title: 'Lunch', ...plan.lunch },
-                { title: 'Dinner', ...plan.dinner }
-            ];
-
-            meals.forEach(meal => {
-                const mealEl = document.createElement('div');
-                mealEl.innerHTML = `
-                    <h3 class="text-lg font-semibold text-blue-600">${meal.title}: ${meal.name}</h3>
-                    <p class="text-gray-600">${meal.description}</p>
-                `;
-                mealPlanContainer.appendChild(mealEl);
-            });
-        }
+                    mealPlanContainer.innerHTML = ''; // Clear the old plan
+        
+                    // First, check if the plan object itself is valid
+                    if (!plan) {
+                        mealPlanContainer.innerHTML = `<p class="text-red-500">Could not generate a meal plan. The AI response was empty.</p>`;
+                        return;
+                    }
+        
+                    const meals = [];
+        
+                    // Securely check if each meal exists and has the needed details before adding it
+                    if (plan.breakfast && plan.breakfast.name && plan.breakfast.description) {
+                        meals.push({ title: 'Breakfast', name: plan.breakfast.name, description: plan.breakfast.description });
+                    }
+                    if (plan.lunch && plan.lunch.name && plan.lunch.description) {
+                        meals.push({ title: 'Lunch', name: plan.lunch.name, description: plan.lunch.description });
+                    }
+                    if (plan.dinner && plan.dinner.name && plan.dinner.description) {
+                        meals.push({ title: 'Dinner', name: plan.dinner.name, description: plan.dinner.description });
+                    }
+        
+                    // If no valid meals were found after checking, show an error message
+                    if (meals.length === 0) {
+                        mealPlanContainer.innerHTML = `<p class="text-red-500">The AI could not create a valid meal plan with your details. Please try again with more specific information.</p>`;
+                        return;
+                    }
+        
+                    // Now, loop through only the meals that were successfully found
+                    meals.forEach(meal => {
+                        const mealEl = document.createElement('div');
+                        mealEl.className = 'mb-4'; // Add some margin between meal items
+                        mealEl.innerHTML = `
+                            <h3 class="text-lg font-semibold text-blue-600">${meal.title}: ${meal.name}</h3>
+                            <p class="text-gray-600">${meal.description}</p>
+                        `;
+                        mealPlanContainer.appendChild(mealEl);
+                    });
+                }
         
         function displayIgnoredInfo(ignored) {
             ignoredInfoContainer.innerHTML = ''; // Clear previous
